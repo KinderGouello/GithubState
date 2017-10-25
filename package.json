@@ -16,6 +16,7 @@
     "moment": "^2.19.1",
     "nodemon": "^1.12.1",
     "query-string": "^5.0.0",
-    "request": "^2.83.0"
+    "request": "^2.83.0",
+    "to-snake-case": "^1.0.0"
   }
 }

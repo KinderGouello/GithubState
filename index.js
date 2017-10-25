@@ -5,14 +5,11 @@ const request = require('request');
 const moment = require('moment');
 const queryString = require('query-string');
 const extend = require('lodash/extend');
-const githubOAuth = require('github-oauth')({
-  githubClient: process.env.GITHUB_ID,
-  githubSecret: process.env.GITHUB_SECRET,
-  baseURL: 'http://localhost:3000',
-  loginURI: '/login',
-  callbackURI: '/callback',
-  scope: 'user' // optional, default scope is set to user
-});
+const fs = require('fs');
+
+const now = moment();
+
+process.on('SIGUSR2', () => { process.exit(0); });
 
 function getGithubRequestOptions(url, options) {
     const defaultOptions = {
@@ -46,23 +43,105 @@ function getGithubRequestOptions(url, options) {
 //   });
 // });
 
+function isStaleBranch(branchDate) {
+  return moment(branchDate).diff(now, 'months') <= -3;
+}
+
 app.get('/branches', (req, res) => {
-  request(getGithubRequestOptions(`/orgs/ARAMISAUTO/repos`), (e, r, body) => {
-    // body.map((repo) => {
-    //   console.log(repo.name);
-    //   request(getGithubRequestOptions(`/repos/${repo.owner.login}/${repo.name}/branches`), (e, r, body) => {
-    //     console.log(body);
-    //   });
+  // request(getGithubRequestOptions(`/orgs/ARAMISAUTO/repos`), (e, r, body) => {
+  //   // const repo = body[0];
+  //   body.map((repo) => {
+  //     const repoDir = `./stats/${repo.name}`;
+
+  //     if (!fs.existsSync(repoDir)) {
+  //       fs.mkdirSync(repoDir);
+  //     }
+
+      const repo = {
+        name: 'robusto',
+        owner: {
+          login: 'ARAMISAUTO',
+        },
+      };
+      const repoDir = `./stats/${repo.name}`;
+
+      setTimeout(function() {
+        request(getGithubRequestOptions(`/repos/${repo.owner.login}/${repo.name}/branches`, {
+          per_page: 100,
+        }), (e, r, branches) => {
+
+          branches.map(branch => {
+            request(getGithubRequestOptions(`/repos/${repo.owner.login}/${repo.name}/branches/${branch.name}`), (e, r, branchInfo) => {
+              const branchFile = `${repoDir}/${branchInfo.name.replace(/\//g, '_')}.json`;
+              // console.log(branchFile);
+              // const authorDate = branchInfo.commit.commit.author.date;
+
+              if (!fs.existsSync(branchFile)) {
+                fs.writeFileSync(branchFile, JSON.stringify(branchInfo));
+              }
+              
+              // if (isStaleBranch(authorDate)) {
+              //   console.log(branchInfo.name);
+              // }
+              // const committerDate = moment(body.commit.commit.committer.date);
+            });
+          });
+
+          // console.log(repo.name);
+          // console.log(branches.length);
+          // console.log(branches);
+          // branches.map((branch) => {
+          //   console.log(branch);
+            // setTimeout(function() {
+            //   request(getGithubRequestOptions(`/repos/${repo.owner.login}/${repo.name}/branches/${branch.name}`), (e, r, branchInfo) => {
+            //     console.log(branchInfo);
+            //     const authorDate = branchInfo.commit.commit.author.date;
+                
+            //     if (isStaleBranch(authorDate)) {
+            //       console.log(branchInfo.name);
+            //     }
+            //     // const committerDate = moment(body.commit.commit.committer.date);
+            //   });
+            // }, 1000);
+          // });
+        });
+      }, 1000);
+      // request(getGithubRequestOptions(`/repos/${repo.owner.login}/${repo.name}/branches`), (e, r, branches) => {
+      //   branches.map((branch) => {
+      //     setTimeout(function() {
+      //       request(getGithubRequestOptions(`/repos/${repo.owner.login}/${repo.name}/branches/${branch.name}`), (e, r, branchInfo) => {
+      //         console.log(branchInfo);
+      //         const authorDate = branchInfo.commit.commit.author.date;
+              
+      //         if (isStaleBranch(authorDate)) {
+      //           console.log(branchInfo.name);
+      //         }
+      //         // const committerDate = moment(body.commit.commit.committer.date);
+      //       });
+      //     }, 1000);
+      //   });
+      // });
     // });
 
-    const repo = body[0];
-    console.log(repo.name);
-    request(getGithubRequestOptions(`/repos/${repo.owner.login}/${repo.name}/branches`), (e, r, body) => {
-      request(getGithubRequestOptions(`/repos/${repo.owner.login}/${repo.name}/branches/${body[0].name}`), (e, r, body) => {
-        console.log(body.commit.commit.author);
-        console.log(body.commit.commit.committer);
-      });
-    });
+
+    // request(getGithubRequestOptions(`/repos/${repo.owner.login}/${repo.name}/branches`), (e, r, branches) => {
+    //   branches.map((branch) => {
+    //     request(getGithubRequestOptions(`/repos/${repo.owner.login}/${repo.name}/branches/${branch.name}`), (e, r, branchInfo) => {
+    //       const authorDate = branchInfo.commit.commit.author.date;
+          
+    //       if (isStaleBranch(authorDate)) {
+    //         console.log(branchInfo.name);
+    //       }
+    //       // const committerDate = moment(body.commit.commit.committer.date);
+    //     });
+    //   });
+    // });
+  // });
+});
+
+app.get('/rate', (req, res) => {
+  request(getGithubRequestOptions(`/rate_limit`), (e, r, body) => {
+    console.log(body);
   });
 });
 
