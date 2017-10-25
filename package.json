@@ -11,6 +11,7 @@
     "dotenv": "^4.0.0",
     "express": "^4.16.2",
     "github-oauth": "^0.2.2",
+    "github-pagination": "^0.1.0",
     "http": "0.0.0",
     "lodash": "^4.17.4",
     "moment": "^2.19.1",

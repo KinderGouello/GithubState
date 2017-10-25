@@ -6,6 +6,7 @@ const moment = require('moment');
 const queryString = require('query-string');
 const extend = require('lodash/extend');
 const fs = require('fs');
+const githubPagination = require('github-pagination');
 
 const now = moment();
 
@@ -47,8 +48,24 @@ function isStaleBranch(branchDate) {
   return moment(branchDate).diff(now, 'months') <= -3;
 }
 
+function getPagination(string) {
+  if (typeof string === undefined) {
+    return {};
+  }
+
+  return string.split(',').map(links => {
+    return links.split(';').map((link, idx) => {
+      if (idx === 0) return /[^_]page=(\d+)/.exec(link)[1];
+      if (idx === 1) return /rel="(.+)"/.exec(link)[1];
+    });
+  }).reduce((obj, curr, i) => {
+    obj[curr[1]] = curr[0];
+    return obj;
+  }, {});
+}
+
 app.get('/branches', (req, res) => {
-  // request(getGithubRequestOptions(`/orgs/ARAMISAUTO/repos`), (e, r, body) => {
+  // request(getGithubRequestOptions(`/orgs/xxx/repos`), (e, r, body) => {
   //   // const repo = body[0];
   //   body.map((repo) => {
   //     const repoDir = `./stats/${repo.name}`;
@@ -58,34 +75,58 @@ app.get('/branches', (req, res) => {
   //     }
 
       const repo = {
-        name: 'robusto',
+        name: 'xxxx',
         owner: {
-          login: 'ARAMISAUTO',
+          login: 'xxxx',
         },
       };
       const repoDir = `./stats/${repo.name}`;
 
-      setTimeout(function() {
         request(getGithubRequestOptions(`/repos/${repo.owner.login}/${repo.name}/branches`, {
           per_page: 100,
+          page: 5,
         }), (e, r, branches) => {
+          const pagination = getPagination(r.caseless.dict.link);
 
-          branches.map(branch => {
-            request(getGithubRequestOptions(`/repos/${repo.owner.login}/${repo.name}/branches/${branch.name}`), (e, r, branchInfo) => {
-              const branchFile = `${repoDir}/${branchInfo.name.replace(/\//g, '_')}.json`;
-              // console.log(branchFile);
-              // const authorDate = branchInfo.commit.commit.author.date;
+          if (pagination.next) {
+            request(getGithubRequestOptions(`/repos/${repo.owner.login}/${repo.name}/branches`, {
+              per_page: 100,
+              page: pagination.next,
+            }), (e, r, branches) => {
+              branches.map(branch => {
+                request(getGithubRequestOptions(`/repos/${repo.owner.login}/${repo.name}/branches/${branch.name}`), (e, r, branchInfo) => {
+                  const branchFile = `${repoDir}/${branchInfo.name.replace(/\//g, '_')}.json`;
+                  // console.log(branchFile);
+                  // const authorDate = branchInfo.commit.commit.author.date;
 
-              if (!fs.existsSync(branchFile)) {
-                fs.writeFileSync(branchFile, JSON.stringify(branchInfo));
-              }
-              
-              // if (isStaleBranch(authorDate)) {
-              //   console.log(branchInfo.name);
-              // }
-              // const committerDate = moment(body.commit.commit.committer.date);
+                  if (!fs.existsSync(branchFile)) {
+                    fs.writeFileSync(branchFile, JSON.stringify(branchInfo));
+                  }
+                  
+                  // if (isStaleBranch(authorDate)) {
+                  //   console.log(branchInfo.name);
+                  // }
+                  // const committerDate = moment(body.commit.commit.committer.date);
+                });
+              });
             });
-          });
+          }
+          // branches.map(branch => {
+          //   request(getGithubRequestOptions(`/repos/${repo.owner.login}/${repo.name}/branches/${branch.name}`), (e, r, branchInfo) => {
+          //     const branchFile = `${repoDir}/${branchInfo.name.replace(/\//g, '_')}.json`;
+          //     // console.log(branchFile);
+          //     // const authorDate = branchInfo.commit.commit.author.date;
+
+          //     if (!fs.existsSync(branchFile)) {
+          //       fs.writeFileSync(branchFile, JSON.stringify(branchInfo));
+          //     }
+              
+          //     // if (isStaleBranch(authorDate)) {
+          //     //   console.log(branchInfo.name);
+          //     // }
+          //     // const committerDate = moment(body.commit.commit.committer.date);
+          //   });
+          // });
 
           // console.log(repo.name);
           // console.log(branches.length);
@@ -105,7 +146,6 @@ app.get('/branches', (req, res) => {
             // }, 1000);
           // });
         });
-      }, 1000);
       // request(getGithubRequestOptions(`/repos/${repo.owner.login}/${repo.name}/branches`), (e, r, branches) => {
       //   branches.map((branch) => {
       //     setTimeout(function() {
